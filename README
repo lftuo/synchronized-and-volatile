@@ -53,3 +53,55 @@ JMM关于关于synchronized两条规定：
 1.当两个并发线程访问同一个对象object中的这个synchronized(this)同步代码块时，一个时间内只能有一个线程得到执行。
 2.当一个线程访问object的一个synchronized(this)同步代码块时，另一个线程仍然可以访问该object中的非synchronized(this)同步代码块。
 3.当一个线程访问object的一个synchronized(this)同步代码块时，它就获得了这个object的对象锁。结果，其它线程对该object对象所有同步代码部分的访问都被暂时阻塞。
+
+--------------------------------volatile实现可见性--------------------------
+volatile关键字：
+1.能够保证volitale变量可见性
+2.不能保证volitale变量复合操作的原子性（如下）
+    private int number = 0;
+    number++;
+    number++为复合操作，不是原子操作
+    1)读取number的值
+    2)将number的值加1
+    3)写入最新的number的值
+
+    加入synchronized，变为原子操作：
+    synchronized(this){
+        number++;
+    }
+
+    变为volatile，无法保证原子性
+    private volatile int number = 0;
+
+volatile如何保证内存可见性：
+深入来说：通过加入内存屏障和禁止重排序优化来实现的
+    1.对volatile变量进行写操作时，会在写操作后加入一条store屏障指令
+    2.对volatile变量进行读操作时，会在读操作后加入一条load屏障指令
+通俗的讲：volatile变量在每次被线程访问时，都强迫从主内存中重读该变量的值，而当该变量发生变化时，又会强迫线程将最新的值刷新到主内存。这样在任何时刻，不同的线程总能看到该变量的最新的值。
+
+线程写volatile变量的过程：
+    1.改变线程工作内存中volatile变量副本的值
+    2.将改变后的副本的值从工作内存刷新到主内存
+线程读volatile变量的过程：
+    1.从主内存中读取volatile变量的最新值到线程的工作内存中
+    2.从工作内存中读取volatile变量的副本
+
+volatile使用场景：
+要在需多线程中安全的使用volatile变量，必须同时满足：
+1.对变量的写入操作不依赖当前值（不能与之前的值有关系，涉及原子性问题）
+    不满足：number++/count=count*5等
+    满足：boolean变量/温度变化等
+2.该变量没有包含在具有其他变量的不变式中（程序中有多个volatile变量，每个volatile变量要独立于其它volatile变量）
+    例如程序中存在两个volatile变量：up/low，程序中存在low<up的不变式，则不满足
+大部分情况下，毁于以上两种之中的一种冲突，所以说volatile并没有synchronized使用广泛！！！
+
+-----------------------------synchronzed VS volatile--------------------------
+1.volatile不需要加锁,比synchronized更轻量级,不会阻塞线程
+2.从内存可见性角度,volatile读相当于 加锁,volatile写相当于 解锁.
+3.synchronized既能保证可见性,又能保证原子性,而volatile只能保证可见性,无法保证原子性.
+实际使用中，在保证线程安全的情况下，volatile比较轻量级，可以较多的使用volatile
+
+几点：
+1.Java中没有提供检测与避免死锁的专门机制，但应用程序员可以采用某些策略防止死锁的发生
+2.JAVA中对共享数据操作的并发控制是采用加锁技术
+3.共享数据的访问权限都必须定义为private
